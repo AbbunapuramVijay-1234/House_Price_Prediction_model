@@ -1,18 +1,30 @@
-#Phase 2: Building the Web Application
 import streamlit as st
 import pandas as pd
-import joblib
 import numpy as np
-
-# Load the trained model
-@st.cache_resource
-def load_model():
-    return joblib.load('house_model.pkl')
-
-model = load_model()
+from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
 
 st.title("🏠 California House Price Prediction App")
 st.write("Enter the district details below to predict the median house value.")
+
+# Load data and train model automatically on startup (cached for speed)
+@st.cache_resource
+def get_trained_model():
+    housing = fetch_california_housing(as_frame=True)
+    df = housing.frame
+    X = df.drop(columns=['MedHouseVal'])
+    y = df['MedHouseVal']
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    # Train Random Forest model
+    model = RandomForestRegressor(n_estimators=50, random_state=42)
+    model.fit(X_train, y_train)
+    return model
+
+with st.spinner("Initializing and training model... Please wait a moment."):
+    model = get_trained_model()
 
 # Create input widgets for the 8 features
 col1, col2 = st.columns(2)
@@ -35,7 +47,6 @@ if st.button("Predict Price", type="primary"):
                               columns=['MedInc', 'HouseAge', 'AveRooms', 'AveBedrms', 'Population', 'AveOccup', 'Latitude', 'Longitude'])
     
     prediction = model.predict(input_data)[0]
-    # Multiply by 100,000 since target is in $100k units
     final_price = prediction * 100000
     
     st.success(f"Estimated Median House Value: **${final_price:,.2f}**")
